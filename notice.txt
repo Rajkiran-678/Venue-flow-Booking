@@ -1,0 +1,3 @@
+Demo organizer login:
+Email: admin@venueflow.demo
+Password: VenueFlow2026!
