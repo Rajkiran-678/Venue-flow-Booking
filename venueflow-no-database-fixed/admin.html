@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin dashboard | VenueFlow</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-bar"><a class="logo" href="./index.html">Venue<span>Flow</span></a><nav class="main-nav"><a href="./index.html">Home</a><a href="./events.html">Explore events</a><a href="./bookings.html">My bookings</a><a class="active" href="./admin.html" id="admin-link">Admin</a></nav><div class="account-links" id="account-links"><a href="./login.html">Log in</a><a class="button button-small" href="./register.html">Sign up</a></div></div>
+  </header>
+  <main class="container page-space">
+    <section class="page-intro"><p class="small-heading orange-text">ORGANIZER AREA</p><h1>Admin dashboard.</h1><p class="section-description">Add events, see all accounts and bookings saved in this browser, and download reports. Data is not shared with other browsers or devices.</p></section>
+    <div id="admin-message" class="notice" role="status" aria-live="polite"></div>
+    <div id="admin-area" class="admin-area">
+      <section class="admin-section">
+        <div class="section-heading"><div><p class="small-heading orange-text">KEEP YOUR RECORDS</p><h2>Backup and restore</h2></div></div>
+        <p class="section-description">Download a full backup before changing deployments or browsers. A backup contains registered account details and password hashes, so keep the file private.</p>
+        <div class="form-buttons backup-buttons">
+          <button class="button" id="download-backup" type="button">Download full backup</button>
+          <button class="button button-light" id="import-backup-button" type="button">Import / merge backup</button>
+          <input id="import-backup-file" type="file" accept="application/json,.json" hidden>
+        </div>
+        <p class="form-note">Logout does not delete data. Accounts, events and bookings are stored under this website address in the current browser.</p>
+      </section>
+
+      <section class="admin-section">
+        <div class="section-heading"><div><p class="small-heading orange-text">AT A GLANCE</p><h2>Event statistics</h2></div></div>
+        <div class="stats-grid" id="admin-stats"><p>Loading dashboard...</p></div>
+      </section>
+
+      <section class="admin-section">
+        <div class="section-heading"><div><p class="small-heading orange-text">CREATE OR EDIT</p><h2 id="event-form-heading">Add an event</h2></div></div>
+        <form id="event-form" class="admin-form">
+          <input type="hidden" name="eventId">
+          <label>Event name<input name="title" type="text" required></label>
+          <label>Category<select name="category" required><option value="Music">Music</option><option value="Workshop">Workshop</option><option value="Conference">Conference</option><option value="Arts">Arts</option><option value="Networking">Networking</option><option value="Community">Community</option></select></label>
+          <label>Event date<input name="date" type="date" required></label>
+          <label>Event time<input name="time" type="text" placeholder="6:30 PM" required></label>
+          <label>Venue<input name="venue" type="text" required></label>
+          <label>City<input name="city" type="text" value="Hyderabad" required></label>
+          <label>Ticket price (Rs.)<input name="price" type="number" min="0" step="1" value="0" required></label>
+          <label>Ticket capacity<input name="capacity" type="number" min="1" step="1" value="50" required></label>
+          <label class="full-row">Banner image URL (optional)<input name="image" type="text" placeholder="https://...jpg"></label>
+          <label class="full-row">Event description<textarea name="description" rows="4" required></textarea></label>
+          <div class="form-buttons full-row"><button class="button" id="event-submit" type="submit">Save event</button><button class="button button-light" id="event-reset" type="button">Clear form</button></div>
+        </form>
+      </section>
+
+      <section class="admin-section">
+        <div class="section-heading"><div><p class="small-heading orange-text">KEEP DETAILS UPDATED</p><h2>Manage events</h2></div></div>
+        <div class="table-wrap" id="admin-event-table"><p>Loading events...</p></div>
+      </section>
+
+      <section class="admin-section">
+        <div class="section-heading"><div><p class="small-heading orange-text">ALL ACCOUNTS IN THIS BROWSER</p><h2>Registered accounts</h2></div></div>
+        <p class="form-note">This list only includes accounts saved under this exact website address and browser profile.</p>
+        <div class="table-wrap" id="admin-user-table"><p>Loading accounts...</p></div>
+      </section>
+
+      <section class="admin-section">
+        <div class="section-heading"><div><p class="small-heading orange-text">THE BOOKING RECORD</p><h2>All bookings report</h2></div><button class="button" id="download-report" type="button">Download CSV</button></div>
+        <div class="table-wrap" id="admin-booking-table"><p>Loading bookings...</p></div>
+      </section>
+    </div>
+  </main>
+  <footer class="site-footer"><div class="container footer-row"><a class="logo footer-logo" href="./index.html">Venue<span>Flow</span></a><p>Good plans start with good people.</p><p>&copy; 2026 VenueFlow</p></div></footer>
+  <script src="./js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create account | VenueFlow</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-bar"><a class="logo" href="./index.html">Venue<span>Flow</span></a><nav class="main-nav"><a href="./index.html">Home</a><a href="./events.html">Explore events</a><a href="./bookings.html">My bookings</a><a href="./admin.html" id="admin-link">Admin</a></nav><div class="account-links" id="account-links"><a href="./login.html">Log in</a><a class="button button-small" href="./register.html">Sign up</a></div></div>
+  </header>
+  <main class="account-page">
+    <div class="account-picture register-picture"><div><p class="small-heading">MEET YOUR PEOPLE</p><h1>Say yes to<br>something new.</h1><p>Find experiences worth sharing and keep every booking easy to find.</p></div></div>
+    <section class="account-form-area">
+      <div class="account-form">
+        <p class="small-heading orange-text">JOIN THE COMMUNITY</p>
+        <h2>Create account</h2>
+        <p class="section-description">It only takes a minute.</p>
+        <p class="form-note">Student demo: your account is saved in this browser and this website address only. Do not use a real password.</p>
+        <form id="register-form">
+          <label>Full name<input type="text" name="name" placeholder="Your name" minlength="2" required></label>
+          <label>Email address<input type="email" name="email" placeholder="you@example.com" required></label>
+          <label>Password<input type="password" name="password" placeholder="At least 8 characters" minlength="8" required></label>
+          <button class="button button-wide" type="submit">Create account</button>
+          <p class="form-message" id="form-message"></p>
+        </form>
+        <p class="form-note">Already have an account? <a href="./login.html">Log in</a></p>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="container footer-row"><a class="logo footer-logo" href="./index.html">Venue<span>Flow</span></a><p>Good plans start with good people.</p><p>&copy; 2026 VenueFlow</p></div></footer>
+  <script src="./js/app.js"></script>
+</body>
+</html>

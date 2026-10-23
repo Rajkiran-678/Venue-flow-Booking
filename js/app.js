@@ -83,29 +83,44 @@ async function hashPassword(password) {
 }
 
 async function initializeStorage() {
-  if (!localStorage.getItem(STORAGE_KEYS.events)) {
-    saveData(STORAGE_KEYS.events, sampleEvents);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.users)) {
-    saveData(STORAGE_KEYS.users, []);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.bookings)) {
-    saveData(STORAGE_KEYS.bookings, []);
-  }
+  // Keep these same storage keys so existing data on this exact website URL remains available.
+  const storedEvents = localStorage.getItem(STORAGE_KEYS.events);
+  const storedUsers = localStorage.getItem(STORAGE_KEYS.users);
+  const storedBookings = localStorage.getItem(STORAGE_KEYS.bookings);
 
-  // Demonstration admin account. Do not use these credentials for a real service.
-  const users = readData(STORAGE_KEYS.users, []);
-  const adminExists = users.some(function (user) { return user.email === "admin@venueflow.demo"; });
-  if (!adminExists) {
-    users.push({
-      id: "demo-admin",
-      name: "VenueFlow Organizer",
-      email: "admin@venueflow.demo",
-      passwordHash: await hashPassword("VenueFlow2026!"),
-      role: "admin"
-    });
-    saveData(STORAGE_KEYS.users, users);
-  }
+  if (storedEvents === null) saveData(STORAGE_KEYS.events, sampleEvents);
+  if (storedUsers === null) saveData(STORAGE_KEYS.users, []);
+  if (storedBookings === null) saveData(STORAGE_KEYS.bookings, []);
+
+  // Repair invalid or incomplete storage without overwriting valid saved records.
+  const events = readData(STORAGE_KEYS.events, null);
+  const users = readData(STORAGE_KEYS.users, null);
+  const bookings = readData(STORAGE_KEYS.bookings, null);
+  if (!Array.isArray(events)) saveData(STORAGE_KEYS.events, sampleEvents);
+  if (!Array.isArray(users)) saveData(STORAGE_KEYS.users, []);
+  if (!Array.isArray(bookings)) saveData(STORAGE_KEYS.bookings, []);
+
+  // Demonstration admin account. Browser-only authentication is not secure for real services.
+  const savedUsers = readData(STORAGE_KEYS.users, []);
+  const adminEmail = "admin@venueflow.demo";
+  const adminHash = await hashPassword("VenueFlow2026!");
+  const adminIndex = savedUsers.findIndex(function (user) {
+    return String(user.email || "").toLowerCase() === adminEmail;
+  });
+  const demoAdmin = {
+    id: adminIndex >= 0 && savedUsers[adminIndex].id ? savedUsers[adminIndex].id : "demo-admin",
+    name: "VenueFlow Organizer",
+    email: adminEmail,
+    passwordHash: adminHash,
+    role: "admin",
+    createdAt: adminIndex >= 0 && savedUsers[adminIndex].createdAt ? savedUsers[adminIndex].createdAt : new Date().toISOString()
+  };
+  if (adminIndex >= 0) savedUsers[adminIndex] = Object.assign({}, savedUsers[adminIndex], demoAdmin);
+  else savedUsers.push(demoAdmin);
+  saveData(STORAGE_KEYS.users, savedUsers);
+
+  // Recalculate seats from confirmed bookings. This prevents event seat counts drifting after cancels/imports.
+  syncBookedSeats();
 }
 
 function loadCurrentUser() {
@@ -117,6 +132,17 @@ function loadCurrentUser() {
 function getUsers() { return readData(STORAGE_KEYS.users, []); }
 function getEvents() { return readData(STORAGE_KEYS.events, []); }
 function getBookings() { return readData(STORAGE_KEYS.bookings, []); }
+
+function syncBookedSeats() {
+  const events = getEvents();
+  const bookings = getBookings();
+  events.forEach(function (event) {
+    event.bookedSeats = bookings.reduce(function (total, booking) {
+      return total + (booking.eventId === event.id && booking.status === "confirmed" ? Number(booking.seats || 0) : 0);
+    }, 0);
+  });
+  saveData(STORAGE_KEYS.events, events);
+}
 
 function escapeText(value) {
   return String(value == null ? "" : value)
@@ -364,7 +390,7 @@ function setUpRegisterForm() {
       return;
     }
     try {
-      const user = { id: createId("user"), name: name, email: email, passwordHash: await hashPassword(password), role: "user" };
+      const user = { id: createId("user"), name: name, email: email, passwordHash: await hashPassword(password), role: "user", createdAt: new Date().toISOString() };
       users.push(user);
       saveData(STORAGE_KEYS.users, users);
       localStorage.setItem(STORAGE_KEYS.currentUser, user.id);
@@ -454,6 +480,7 @@ function loadAdminDashboard() {
   const statsArea = document.getElementById("admin-stats");
   const eventTable = document.getElementById("admin-event-table");
   const bookingTable = document.getElementById("admin-booking-table");
+  const usersTable = document.getElementById("admin-user-table");
   const form = document.getElementById("event-form");
   let savedEvents = [];
   let savedBookings = [];
@@ -476,28 +503,47 @@ function loadAdminDashboard() {
 
   function refreshDashboard() {
     savedEvents = getEvents().slice().sort(function (a, b) { return a.date.localeCompare(b.date); });
-    savedBookings = getBookings();
+    savedBookings = getBookings().slice().sort(function (a, b) { return String(b.createdAt || "").localeCompare(String(a.createdAt || "")); });
+    const users = getUsers().slice().sort(function (a, b) {
+      return String(a.email || "").localeCompare(String(b.email || ""));
+    });
+    const attendeeUsers = users.filter(function (user) { return user.role !== "admin"; });
+    const adminUsers = users.filter(function (user) { return user.role === "admin"; });
     const confirmedBookings = savedBookings.filter(function (booking) { return booking.status === "confirmed"; });
-    const bookingValue = confirmedBookings.reduce(function (sum, booking) { return sum + Number(booking.totalAmount); }, 0);
-    statsArea.innerHTML = `<div class="stat-card"><p>Events listed</p><strong>${savedEvents.length}</strong></div>
-      <div class="stat-card"><p>Registered users</p><strong>${getUsers().length}</strong></div>
-      <div class="stat-card"><p>Confirmed bookings</p><strong>${confirmedBookings.length}</strong></div>
-      <div class="stat-card"><p>Booking value</p><strong>${escapeText(showPrice(bookingValue))}</strong></div>`;
+    const confirmedTickets = confirmedBookings.reduce(function (sum, booking) { return sum + Number(booking.seats || 0); }, 0);
+    const bookingValue = confirmedBookings.reduce(function (sum, booking) { return sum + Number(booking.totalAmount || 0); }, 0);
+
+    statsArea.innerHTML = `
+      <div class="stat-card"><p>Events listed</p><strong>${savedEvents.length}</strong></div>
+      <div class="stat-card"><p>All accounts, including admin</p><strong>${users.length}</strong></div>
+      <div class="stat-card"><p>Attendee accounts</p><strong>${attendeeUsers.length}</strong></div>
+      <div class="stat-card"><p>Admin accounts</p><strong>${adminUsers.length}</strong></div>
+      <div class="stat-card"><p>Confirmed booking records</p><strong>${confirmedBookings.length}</strong></div>
+      <div class="stat-card"><p>Confirmed tickets</p><strong>${confirmedTickets}</strong></div>
+      <div class="stat-card"><p>Confirmed booking value</p><strong>${escapeText(showPrice(bookingValue))}</strong></div>`;
 
     const eventRows = savedEvents.map(function (event) {
       return `<tr><td><strong>${escapeText(event.title)}</strong><br>${escapeText(event.category)}</td><td>${escapeText(showDate(event.date))}</td>
         <td>${Number(event.bookedSeats || 0)} / ${Number(event.capacity)}</td><td>${escapeText(showPrice(event.price))}</td>
         <td><div class="table-buttons"><button class="small-button" data-edit-event="${escapeText(event.id)}" type="button">Edit</button><button class="small-button delete-button" data-delete-event="${escapeText(event.id)}" type="button">Delete</button></div></td></tr>`;
     }).join("");
-    eventTable.innerHTML = makeTable(["Event", "Date", "Tickets booked", "Price", "Actions"], eventRows);
+    eventTable.innerHTML = makeTable(["Event", "Date", "Tickets booked / capacity", "Price", "Actions"], eventRows);
 
     const bookingRows = savedBookings.map(function (booking) {
-      const user = getUsers().find(function (item) { return item.id === booking.userId; });
+      const user = users.find(function (item) { return item.id === booking.userId; });
       const event = getEventById(booking.eventId);
-      return `<tr><td><strong>${escapeText(booking.bookingCode)}</strong></td><td>${escapeText(user ? user.name : "Unknown")}<br>${escapeText(user ? user.email : "")}</td>
-        <td>${escapeText(event ? event.title : "Deleted event")}</td><td>${Number(booking.seats)}</td><td>${escapeText(showPrice(booking.totalAmount))}</td><td>${escapeText(booking.status)}</td></tr>`;
+      return `<tr><td><strong>${escapeText(booking.bookingCode || booking.id)}</strong></td><td>${escapeText(user ? user.name : "Unknown")}<br>${escapeText(user ? user.email : "")}</td>
+        <td>${escapeText(event ? event.title : "Deleted event")}</td><td>${Number(booking.seats || 0)}</td><td>${escapeText(showPrice(booking.totalAmount))}</td><td>${escapeText(booking.status)}</td><td>${escapeText(showDate((booking.createdAt || "").slice(0, 10)))}</td></tr>`;
     }).join("");
-    bookingTable.innerHTML = makeTable(["Reference", "Attendee", "Event", "Tickets", "Total", "Status"], bookingRows);
+    bookingTable.innerHTML = makeTable(["Reference", "Attendee", "Event", "Tickets", "Total", "Status", "Booked on"], bookingRows);
+
+    const userRows = users.map(function (user) {
+      const accountBookings = savedBookings.filter(function (booking) { return booking.userId === user.id; });
+      const confirmedCount = accountBookings.filter(function (booking) { return booking.status === "confirmed"; }).length;
+      return `<tr><td><strong>${escapeText(user.name || "Unnamed user")}</strong></td><td>${escapeText(user.email || "")}</td>
+        <td>${escapeText(user.role || "user")}</td><td>${escapeText(user.createdAt ? showDate(user.createdAt.slice(0, 10)) : "Existing account")}</td><td>${accountBookings.length}</td><td>${confirmedCount}</td></tr>`;
+    }).join("");
+    usersTable.innerHTML = makeTable(["Name", "Email", "Role", "Created", "Booking records", "Confirmed"], userRows);
 
     document.querySelectorAll("[data-edit-event]").forEach(function (button) {
       button.addEventListener("click", function () {
@@ -519,7 +565,7 @@ function loadAdminDashboard() {
         const event = savedEvents.find(function (item) { return item.id === id; });
         if (!event || !window.confirm("Delete '" + event.title + "'?")) return;
         if (savedBookings.some(function (booking) { return booking.eventId === id; })) {
-          pageMessage.textContent = "This event has bookings, so it cannot be deleted. You can edit it instead.";
+          pageMessage.textContent = "This event has booking history, so it cannot be deleted. You can edit it instead.";
           return;
         }
         saveData(STORAGE_KEYS.events, getEvents().filter(function (item) { return item.id !== id; }));
@@ -527,6 +573,123 @@ function loadAdminDashboard() {
         refreshDashboard();
       });
     });
+  }
+
+  function createDataBackup() {
+    return {
+      app: "VenueFlow",
+      backupVersion: 1,
+      exportedAt: new Date().toISOString(),
+      note: "Contains user profile data and password hashes. Keep it private.",
+      users: getUsers(),
+      events: getEvents(),
+      bookings: getBookings()
+    };
+  }
+
+  function downloadJsonBackup() {
+    const json = JSON.stringify(createDataBackup(), null, 2);
+    const file = new Blob([json], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "venueflow-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    pageMessage.textContent = "Backup downloaded. Keep the JSON file private; it includes account data and password hashes.";
+  }
+
+  async function mergeJsonBackup(file) {
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    const incomingUsers = Array.isArray(backup.users) ? backup.users : null;
+    const incomingEvents = Array.isArray(backup.events) ? backup.events : null;
+    const incomingBookings = Array.isArray(backup.bookings) ? backup.bookings : null;
+    if (backup.app !== "VenueFlow" || backup.backupVersion !== 1 || !incomingUsers || !incomingEvents || !incomingBookings) {
+      throw new Error("This file is not a valid VenueFlow backup.");
+    }
+
+    const users = getUsers();
+    const events = getEvents();
+    const bookings = getBookings();
+    const userIdMap = {};
+    let usersAdded = 0;
+    let eventsAdded = 0;
+    let bookingsAdded = 0;
+
+    incomingUsers.forEach(function (incoming) {
+      if (!incoming || !incoming.id || !incoming.email) return;
+      const email = String(incoming.email).trim().toLowerCase();
+      let existing = users.find(function (item) { return String(item.email || "").trim().toLowerCase() === email; });
+      if (existing) {
+        userIdMap[incoming.id] = existing.id;
+        // Preserve account identity locally, but carry the exported hash so that the moved account can still sign in.
+        existing.name = incoming.name || existing.name;
+        existing.passwordHash = incoming.passwordHash || existing.passwordHash;
+        existing.createdAt = existing.createdAt || incoming.createdAt;
+        if (email === "admin@venueflow.demo" || incoming.role === "admin") existing.role = "admin";
+      } else {
+        const copy = Object.assign({}, incoming);
+        if (users.some(function (item) { return item.id === copy.id; })) copy.id = createId("user");
+        copy.email = email;
+        copy.role = email === "admin@venueflow.demo" || copy.role === "admin" ? "admin" : "user";
+        users.push(copy);
+        userIdMap[incoming.id] = copy.id;
+        usersAdded += 1;
+      }
+    });
+
+    const eventIdMap = {};
+    incomingEvents.forEach(function (incoming) {
+      if (!incoming || !incoming.id || !incoming.title) return;
+      let existing = events.find(function (item) { return item.id === incoming.id; });
+      if (!existing) {
+        const signature = [incoming.title, incoming.date, incoming.venue, incoming.city].join("|").toLowerCase();
+        existing = events.find(function (item) {
+          return [item.title, item.date, item.venue, item.city].join("|").toLowerCase() === signature;
+        });
+      }
+      if (existing) {
+        const mappedId = existing.id;
+        Object.assign(existing, incoming, { id: mappedId });
+        eventIdMap[incoming.id] = mappedId;
+      } else {
+        const copy = Object.assign({}, incoming);
+        if (events.some(function (item) { return item.id === copy.id; })) copy.id = createId("event");
+        copy.bookedSeats = 0;
+        events.push(copy);
+        eventIdMap[incoming.id] = copy.id;
+        eventsAdded += 1;
+      }
+    });
+
+    incomingBookings.forEach(function (incoming) {
+      if (!incoming || !incoming.id || !incoming.userId || !incoming.eventId) return;
+      const code = String(incoming.bookingCode || "");
+      const exists = bookings.some(function (item) {
+        return item.id === incoming.id || (code && item.bookingCode === code);
+      });
+      if (exists) return;
+      const mappedUserId = userIdMap[incoming.userId] || incoming.userId;
+      const mappedEventId = eventIdMap[incoming.eventId] || incoming.eventId;
+      if (!users.some(function (item) { return item.id === mappedUserId; })) return;
+      if (!events.some(function (item) { return item.id === mappedEventId; })) return;
+      const copy = Object.assign({}, incoming, { userId: mappedUserId, eventId: mappedEventId });
+      if (bookings.some(function (item) { return item.id === copy.id; })) copy.id = createId("booking");
+      bookings.push(copy);
+      bookingsAdded += 1;
+    });
+
+    saveData(STORAGE_KEYS.users, users);
+    saveData(STORAGE_KEYS.events, events);
+    saveData(STORAGE_KEYS.bookings, bookings);
+    syncBookedSeats();
+    loadCurrentUser();
+    updateNavigation();
+    refreshDashboard();
+    pageMessage.textContent = "Backup merged successfully: " + usersAdded + " new account(s), " + eventsAdded + " new event(s), and " + bookingsAdded + " new booking record(s). Existing records were kept.";
   }
 
   refreshDashboard();
@@ -556,22 +719,21 @@ function loadAdminDashboard() {
       pageMessage.textContent = "Enter a valid price and a ticket capacity greater than zero.";
       return;
     }
-
-    const events = getEvents();
-    const existing = events.find(function (item) { return item.id === id; });
+    const allEvents = getEvents();
+    const existing = allEvents.find(function (item) { return item.id === id; });
     if (existing) {
       if (eventObject.capacity < Number(existing.bookedSeats || 0)) {
         pageMessage.textContent = "Capacity cannot be lower than the number of tickets already booked.";
         return;
       }
       eventObject.bookedSeats = Number(existing.bookedSeats || 0);
-      events[events.findIndex(function (item) { return item.id === id; })] = eventObject;
+      allEvents[allEvents.findIndex(function (item) { return item.id === id; })] = eventObject;
       pageMessage.textContent = "Event updated.";
     } else {
-      events.push(eventObject);
+      allEvents.push(eventObject);
       pageMessage.textContent = "Event added.";
     }
-    saveData(STORAGE_KEYS.events, events);
+    saveData(STORAGE_KEYS.events, allEvents);
     resetEventForm();
     refreshDashboard();
   });
@@ -582,11 +744,11 @@ function loadAdminDashboard() {
   });
 
   document.getElementById("download-report").addEventListener("click", function () {
-    const rows = [["Booking reference", "Attendee", "Email", "Event", "Event date", "Tickets", "Total", "Status"]];
+    const rows = [["Booking reference", "Attendee", "Email", "Event", "Event date", "Tickets", "Total", "Status", "Created at"]];
     savedBookings.forEach(function (booking) {
       const user = getUsers().find(function (item) { return item.id === booking.userId; });
       const event = getEventById(booking.eventId);
-      rows.push([booking.bookingCode, user ? user.name : "Unknown", user ? user.email : "", event ? event.title : "Deleted event", event ? showDate(event.date) : "", booking.seats, booking.totalAmount, booking.status]);
+      rows.push([booking.bookingCode || booking.id, user ? user.name : "Unknown", user ? user.email : "", event ? event.title : "Deleted event", event ? showDate(event.date) : "", booking.seats, booking.totalAmount, booking.status, booking.createdAt || ""]);
     });
     const csvText = rows.map(function (row) {
       return row.map(function (value) { return '"' + String(value == null ? "" : value).replace(/"/g, '""') + '"'; }).join(",");
@@ -596,8 +758,43 @@ function loadAdminDashboard() {
     const link = document.createElement("a");
     link.href = fileUrl;
     link.download = "venueflow-booking-report.csv";
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(fileUrl);
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(fileUrl); }, 1000);
+  });
+
+  const backupButton = document.getElementById("download-backup");
+  const importButton = document.getElementById("import-backup-button");
+  const importInput = document.getElementById("import-backup-file");
+  if (backupButton) backupButton.addEventListener("click", downloadJsonBackup);
+  if (importButton && importInput) importButton.addEventListener("click", function () { importInput.click(); });
+  if (importInput) importInput.addEventListener("change", async function () {
+    const file = importInput.files && importInput.files[0];
+    if (!file) return;
+    if (!window.confirm("Merge this backup with the current browser data? Existing records will be kept. The import includes accounts and password hashes.")) {
+      importInput.value = "";
+      return;
+    }
+    try {
+      await mergeJsonBackup(file);
+    } catch (error) {
+      pageMessage.textContent = "Import failed: " + (error && error.message ? error.message : "The file could not be read.");
+    }
+    importInput.value = "";
+  });
+
+  // Keep the admin view refreshed if another tab on this same website changes localStorage.
+  window.addEventListener("storage", function (event) {
+    if (event.key === STORAGE_KEYS.currentUser) {
+      window.location.reload();
+      return;
+    }
+    if ([STORAGE_KEYS.users, STORAGE_KEYS.events, STORAGE_KEYS.bookings].includes(event.key) || event.key === null) {
+      loadCurrentUser();
+      updateNavigation();
+      refreshDashboard();
+    }
   });
 }
 

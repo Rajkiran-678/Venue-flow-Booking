@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explore Events | VenueFlow</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-bar">
+      <a class="logo" href="./index.html">Venue<span>Flow</span></a>
+      <nav class="main-nav">
+        <a href="./index.html">Home</a>
+        <a class="active" href="./events.html">Explore events</a>
+        <a href="./bookings.html">My bookings</a>
+        <a href="./admin.html" id="admin-link">Admin</a>
+      </nav>
+      <div class="account-links" id="account-links"><a href="./login.html">Log in</a><a class="button button-small" href="./register.html">Sign up</a></div>
+    </div>
+  </header>
+
+  <main class="container page-space">
+    <section class="page-intro">
+      <p class="small-heading orange-text">YOUR NEXT PLAN IS HERE</p>
+      <h1>Explore events.</h1>
+      <p class="section-description">Search, find something you love, and save your spot.</p>
+    </section>
+
+    <form class="search-form" id="event-search">
+      <label class="search-label">Search events
+        <input id="search-input" type="search" placeholder="Try music, workshop or Hyderabad">
+      </label>
+      <label>Category
+        <select id="category-filter">
+          <option>All events</option>
+          <option>Music</option>
+          <option>Workshop</option>
+          <option>Conference</option>
+          <option>Arts</option>
+          <option>Networking</option>
+          <option>Community</option>
+        </select>
+      </label>
+      <button class="button" type="submit">Search events</button>
+    </form>
+    <p class="result-count" id="event-count"></p>
+    <div class="event-grid" id="all-events"><p>Loading upcoming events...</p></div>
+  </main>
+
+  <footer class="site-footer"><div class="container footer-row"><a class="logo footer-logo" href="./index.html">Venue<span>Flow</span></a><p>Good plans start with good people.</p><p>&copy; 2026 VenueFlow</p></div></footer>
+  <script src="./js/app.js"></script>
+</body>
+</html>
