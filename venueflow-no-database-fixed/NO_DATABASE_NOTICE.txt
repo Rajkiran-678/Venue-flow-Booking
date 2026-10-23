@@ -1,7 +1,0 @@
-VenueFlow no-database demo
-
-This site stores data in browser localStorage. It is a learning/demo build, not a secure production booking system. Different visitors/devices do not share accounts, events, or bookings. Do not use real passwords or personal customer information.
-
-Demo organizer login:
-Email: admin@venueflow.demo
-Password: VenueFlow2026!
