@@ -718,7 +718,7 @@ textarea:focus {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 15px;
 }
 
@@ -943,4 +943,18 @@ td strong {
     background: white;
     box-shadow: none;
   }
+}
+
+/* Extra controls for the no-database demo's backup and data tables. */
+.backup-buttons {
+  margin: 18px 0 10px;
+}
+
+#admin-user-table table,
+#admin-booking-table table {
+  min-width: 760px;
+}
+
+#admin-message {
+  line-height: 1.6;
 }
